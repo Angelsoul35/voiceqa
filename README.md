@@ -45,6 +45,31 @@ they reach a caller. VoiceQA makes both explicit:
    answer's groundedness and relevance; the pipeline marks it confident or
    recommends escalation.
 
+## How grounding and grading are computed
+
+**Answering is grounded** by construction: the answerer's prompt passes only the
+retrieved passages and instructs the model to answer from them alone or say *"I
+don't have that information."* The passages used are returned as citations. If
+the LLM is unreachable, the fallback returns the single top passage verbatim —
+still grounded and traceable.
+
+**Grading** produces two independent signals (from the LLM as JSON, or from a
+heuristic when offline):
+
+```
+groundedness = |content_words(answer) ∩ content_words(context)| / |content_words(answer)|
+relevant     = content_words(answer) ∩ content_words(question) ≠ ∅
+confident    = groundedness ≥ VQ_MIN_GROUNDEDNESS  AND  relevant
+```
+
+The two signals catch different failures, which is why both are needed. A
+fallback answer (a verbatim passage) is always highly *grounded* — so grounded­ness
+alone would wave through an off-topic answer. **Relevance** is what catches it:
+when the pipeline retrieves the nearest passage for an out-of-scope question like
+*"what is the capital of France?"*, the answer is grounded (≈1.0) but not relevant,
+so `confident` is false and the request is escalated to a human. Escalation is a
+first-class outcome, not a failure.
+
 ## Quick start
 
 ```bash
