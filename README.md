@@ -161,4 +161,4 @@ and the CLI. Nothing in the tests touches a real network.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+[MIT](LICENSE) © Angelo David Padilla Romero
