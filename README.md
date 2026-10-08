@@ -26,12 +26,12 @@ they reach a caller. VoiceQA makes both explicit:
 
 ## How it works
 
-```
- audio / text      transcribe         retrieve            answer            grade
- ────────────   ──────────────   ────────────────   ───────────────   ──────────────
- spoken      ─▶ Transcriber   ─▶ TF-IDF over the ─▶ LLM grounded in ─▶ groundedness +
- question       (Whisper or      knowledge base      the passages       relevance ->
-                offline)         (top-k passages)    (or best passage)  confident?
+```mermaid
+flowchart LR
+    A[Audio / text<br/>spoken question] --> B[Transcribe<br/>Whisper or offline]
+    B --> C[Retrieve<br/>TF-IDF over knowledge base<br/>top-k passages]
+    C --> D[Answer<br/>LLM grounded in passages<br/>or best passage]
+    D --> E[Grade<br/>groundedness + relevance<br/>confident?]
 ```
 
 1. **Transcribe (`transcribe.py`).** A `Transcriber` turns audio into text.
@@ -58,17 +58,28 @@ heuristic when offline):
 
 ```
 groundedness = |content_words(answer) ∩ content_words(context)| / |content_words(answer)|
-relevant     = content_words(answer) ∩ content_words(question) ≠ ∅
+relevant     = |content_words(question) ∩ content_words(context)| / |content_words(question)| ≥ 0.15
 confident    = groundedness ≥ VQ_MIN_GROUNDEDNESS  AND  relevant
 ```
 
 The two signals catch different failures, which is why both are needed. A
 fallback answer (a verbatim passage) is always highly *grounded* — so grounded­ness
 alone would wave through an off-topic answer. **Relevance** is what catches it:
-when the pipeline retrieves the nearest passage for an out-of-scope question like
-*"what is the capital of France?"*, the answer is grounded (≈1.0) but not relevant,
-so `confident` is false and the request is escalated to a human. Escalation is a
-first-class outcome, not a failure.
+it measures how much of the *question* the retrieved context actually covers.
+When the pipeline retrieves the nearest passage for an out-of-scope question like
+*"what is the capital of France?"*, the answer is grounded (≈1.0) but the context
+covers none of the question, so `confident` is false and the request is escalated.
+
+The offline relevance rule is deliberately conservative. Measuring the
+question against the answer alone (an earlier version) was too permissive: one
+shared word — "month" — let a billing-cycle answer pass as relevant to a
+plan-change question, a confident wrong answer. Measuring coverage of the
+question by the retrieved context fixes that, and where a heavily reworded
+question ("end my agreement early" for *cancel contract*) shares little
+vocabulary with the corpus, the offline grader errs toward escalation rather
+than a confident guess. A false escalation costs a human glance; a false
+"confident" ships a wrong answer. The reliable relevance judgement is the LLM
+grader — this is its lexical fallback, and escalation is a first-class outcome.
 
 ## Quick start
 

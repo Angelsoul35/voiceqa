@@ -30,6 +30,16 @@ _STOP = frozenset(
 )
 
 
+# Minimum fraction of the question's content tokens that the retrieved context
+# must cover for the offline heuristic to call an answer relevant. Below this,
+# the grader cannot tell a topically-adjacent passage from an answering one, so
+# it conservatively declines to be confident and the answer is escalated. This
+# bias is deliberate: a false escalation (a human looks at it) is cheap, a false
+# "confident" (a wrong answer shipped as correct) is not. The reliable relevance
+# judgement is the LLM grader; this is its offline fallback.
+_MIN_RELEVANCE_OVERLAP = 0.15
+
+
 def _tokens(text: str) -> set[str]:
     return {w for w in _WORD_RE.findall(text.lower()) if w not in _STOP and len(w) > 2}
 
@@ -59,7 +69,14 @@ class Grader:
         if not answer_tokens:
             return 0.0, False
         grounded = len(answer_tokens & context_tokens) / len(answer_tokens)
-        relevant = bool(_tokens(question) & answer_tokens)
+        # Relevance = how much of the question the *retrieved context* covers.
+        # Overlapping the answer alone was too permissive: a single shared word
+        # (e.g. "month") marked a billing-cycle answer as relevant to a
+        # plan-change question. Measuring against the retrieved context, relative
+        # to the question length, catches that mismatch.
+        question_tokens = _tokens(question)
+        coverage = len(question_tokens & context_tokens) / max(1, len(question_tokens))
+        relevant = coverage >= _MIN_RELEVANCE_OVERLAP
         return round(grounded, 4), relevant
 
     def _prompt(self, question: str, answer: str, passages: list[Passage]) -> str:

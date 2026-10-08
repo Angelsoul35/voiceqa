@@ -2,10 +2,13 @@
 
 ## Las piezas, de principio a fin
 
-```
- audio/texto → transcribe → knowledge (retrieve) → answerer → grader → resultado
- transcribe.py  knowledge.py   answerer.py           grader.py   service.py
-                                     llm/ (cascada de proveedores)
+```mermaid
+flowchart LR
+    A[Audio/texto] --> B[Transcribe<br/>transcribe.py]
+    B --> C[Knowledge / retrieve<br/>knowledge.py]
+    C --> D[Answerer<br/>answerer.py<br/>llm/ cascada de proveedores]
+    D --> E[Grader<br/>grader.py]
+    E --> F[Resultado<br/>service.py]
 ```
 
 Por encima: la **API HTTP** (`main.py`, FastAPI) y la **CLI** (`cli.py`, demo y

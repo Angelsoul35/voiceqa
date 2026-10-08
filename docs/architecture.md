@@ -19,11 +19,12 @@ document describes the pieces, the data flow, and the boundaries between them.
 
 ## Data flow
 
-```
-┌────────────┐ transcribe ┌──────────┐ retrieve ┌────────────┐ answer ┌──────────┐ grade ┌──────────┐
-│ audio/text │ ─────────▶ │ question │ ───────▶ │ passages   │ ─────▶ │ answer   │ ────▶ │ grade +  │
-└────────────┘            └──────────┘          │ (top-k)    │        │ + cites  │       │ confident│
-                                                 └────────────┘        └──────────┘       └──────────┘
+```mermaid
+flowchart LR
+    A[Audio/text] -->|transcribe| B[Question]
+    B -->|retrieve| C[Passages<br/>top-k]
+    C -->|answer| D[Answer<br/>+ cites]
+    D -->|grade| E[Grade<br/>+ confident]
 ```
 
 ## The central idea: ground, then grade

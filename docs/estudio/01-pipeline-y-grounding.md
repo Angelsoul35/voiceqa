@@ -12,8 +12,12 @@ partes: **fundamentar** (grounding) y luego **evaluar** (grading).
 
 ## Las cuatro etapas
 
-```
- audio/texto → transcribir → recuperar → responder → evaluar
+```mermaid
+flowchart LR
+    A[Audio/texto] --> B[Transcribir]
+    B --> C[Recuperar]
+    C --> D[Responder]
+    D --> E[Evaluar]
 ```
 
 1. **Transcribir:** el audio se convierte en texto (etapa enchufable).
