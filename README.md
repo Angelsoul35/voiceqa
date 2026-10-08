@@ -10,6 +10,12 @@ Every stage is provider-agnostic and has an offline fallback, so the pipeline
 runs end to end with no API keys and no network — and upgrades to real speech and
 LLM providers by setting a few environment variables.
 
+[![CI](https://img.shields.io/badge/CI-GitHub%20Actions-blue)](.github/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
+---
+
 ## Why it matters
 
 Voice assistants and support bots fail in a specific, damaging way: they answer
