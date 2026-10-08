@@ -37,14 +37,21 @@ interfaz `Transcriber`.
 
 **¿Por qué TF-IDF y no embeddings?**
 Para una base pequeña y distintiva, TF-IDF es explicable, determinista y no
-necesita modelo ni base vectorial. La interfaz `retrieve` permite cambiar a
+necesita modelo ni base vectorial. Y no es un TF-IDF cualquiera: uno una vista de
+palabra con una de carácter (`char_wb` 3–5 gramas), así que variantes
+morfológicas ("refund"/"refunds") se emparejan y una pregunta hablada reformulada
+recupera igual el tema correcto. La interfaz `retrieve` permite cambiar a
 embeddings densos si el corpus crece. Elijo la herramienta adecuada al tamaño del
 problema.
 
 **¿Cómo evitas responder fuera de tema?**
-La relevancia lo atrapa: aunque la fundamentación sea alta (porque la respuesta es
-literalmente un pasaje), si la respuesta no comparte palabras de contenido con la
-pregunta, `relevant = False` y se deriva. Por eso uso **dos** señales, no una.
+La relevancia lo atrapa. Aunque la fundamentación sea alta (porque la respuesta es
+literalmente un pasaje), la relevancia mide si la **recuperación encontró contexto
+que cubra la pregunta**, con dos señales: la cobertura léxica de la pregunta por el
+contexto, o la mejor puntuación de recuperación. Si ambas son débiles,
+`relevant = False` y se deriva a un humano. Y además exijo fundamentación: solo es
+`confident` si está fundamentada **y** es relevante. Ante la duda, escalar sale
+barato; una respuesta equivocada servida como correcta, no.
 
 ## Sobre el diseño
 

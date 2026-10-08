@@ -35,7 +35,7 @@ they reach a caller. VoiceQA makes both explicit:
 ```mermaid
 flowchart LR
     A[Audio / text<br/>spoken question] --> B[Transcribe<br/>Whisper or offline]
-    B --> C[Retrieve<br/>TF-IDF over knowledge base<br/>top-k passages]
+    B --> C[Retrieve<br/>TF-IDF word + char n-grams<br/>top-k passages]
     C --> D[Answer<br/>LLM grounded in passages<br/>or best passage]
     D --> E[Grade<br/>groundedness + relevance<br/>confident?]
 ```
@@ -44,7 +44,9 @@ flowchart LR
    `WhisperTranscriber` calls an OpenAI-compatible endpoint; `ProvidedTranscript`
    treats its input as already-recognised text (used offline and in tests).
 2. **Retrieve (`knowledge.py`).** A TF-IDF + cosine-similarity search returns the
-   top-k most relevant knowledge-base passages.
+   top-k most relevant knowledge-base passages. The vectoriser unions a word view
+   (1–2 grams) with a character view (`char_wb` 3–5 grams), so a reworded spoken
+   question ("refunds" vs "refund") still retrieves the right topic.
 3. **Answer (`answerer.py`).** The LLM answers using only those passages. If the
    LLM is unreachable, the best-matching passage is returned verbatim.
 4. **Grade (`grader.py`).** The LLM (or a token-overlap heuristic) scores the
@@ -64,28 +66,33 @@ heuristic when offline):
 
 ```
 groundedness = |content_words(answer) ∩ content_words(context)| / |content_words(answer)|
-relevant     = |content_words(question) ∩ content_words(context)| / |content_words(question)| ≥ 0.15
+coverage     = |content_words(question) ∩ content_words(context)| / |content_words(question)|
+top_score    = max cosine similarity of the retrieved passages to the question
+relevant     = coverage ≥ 0.15  OR  top_score ≥ 0.30
 confident    = groundedness ≥ VQ_MIN_GROUNDEDNESS  AND  relevant
 ```
 
 The two signals catch different failures, which is why both are needed. A
-fallback answer (a verbatim passage) is always highly *grounded* — so grounded­ness
-alone would wave through an off-topic answer. **Relevance** is what catches it:
-it measures how much of the *question* the retrieved context actually covers.
-When the pipeline retrieves the nearest passage for an out-of-scope question like
-*"what is the capital of France?"*, the answer is grounded (≈1.0) but the context
-covers none of the question, so `confident` is false and the request is escalated.
+fallback answer (a verbatim passage) is always highly *grounded* — so groundedness
+alone would wave through an off-topic answer. **Relevance** is what catches it,
+and it reads two complementary signals, accepting the answer when *either* is
+clearly met: how much of the *question* the retrieved context covers, and how
+confidently retrieval matched the question in the first place. When the pipeline
+retrieves the nearest passage for an out-of-scope question like *"what is the
+capital of France?"*, the answer is grounded (≈1.0) but coverage is near zero
+*and* the best retrieval score is low, so `confident` is false and the request is
+escalated.
 
-The offline relevance rule is deliberately conservative. Measuring the
-question against the answer alone (an earlier version) was too permissive: one
-shared word — "month" — let a billing-cycle answer pass as relevant to a
-plan-change question, a confident wrong answer. Measuring coverage of the
-question by the retrieved context fixes that, and where a heavily reworded
-question ("end my agreement early" for *cancel contract*) shares little
-vocabulary with the corpus, the offline grader errs toward escalation rather
-than a confident guess. A false escalation costs a human glance; a false
-"confident" ships a wrong answer. The reliable relevance judgement is the LLM
-grader — this is its lexical fallback, and escalation is a first-class outcome.
+The offline relevance rule is deliberately conservative. Coverage requires a real
+overlap, not one shared word, so a single common term ("month") cannot pass a
+billing-cycle answer off as relevant to a plan-change question. The retrieval
+score lets a confident match through even when the surface words differ, while a
+heavily reworded question that shares little with the corpus ("end my agreement
+early" for *cancel contract*) stays below both thresholds and is escalated rather
+than answered with false confidence. A false escalation costs a human glance; a
+false "confident" ships a wrong answer. The reliable relevance judgement is the
+LLM grader — this is its lexical fallback, and escalation is a first-class
+outcome.
 
 ## Quick start
 

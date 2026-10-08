@@ -9,7 +9,7 @@ document describes the pieces, the data flow, and the boundaries between them.
 | Layer          | Module                    | Responsibility                                          |
 | -------------- | ------------------------- | ------------------------------------------------------- |
 | Transcription  | `voiceqa/transcribe.py`   | Audio → text, behind a `Transcriber` protocol           |
-| Knowledge      | `voiceqa/knowledge.py`    | TF-IDF retrieval over a FAQ knowledge base              |
+| Knowledge      | `voiceqa/knowledge.py`    | TF-IDF (word + char n-gram) retrieval over a FAQ        |
 | Answering      | `voiceqa/answerer.py`     | LLM answer grounded in retrieved passages (+ fallback)  |
 | Grading        | `voiceqa/grader.py`       | Score groundedness + relevance (LLM or heuristic)       |
 | LLM interface  | `voiceqa/llm/`            | Provider-agnostic client with a fallback cascade        |
@@ -61,17 +61,34 @@ real providers purely through configuration.
 
 `KnowledgeBase` builds a TF-IDF matrix over the FAQ (question + answer text) once,
 and `retrieve` returns the top-k passages by cosine similarity, each with its
-score. TF-IDF is deliberate: it is simple, explainable, fast, and needs no model
-to train or host. Grounding answers in these retrieved passages is what makes the
-grading step meaningful — there is a concrete source to check the answer against.
+score. The vectoriser is a `FeatureUnion` of a **word** view (1–2 grams, for
+distinctive terms and phrases) and a **character** view (`char_wb` 3–5 grams, for
+matching inside words). The character view is deliberate: questions arrive by
+voice and are reworded, so "refund"/"refunds" or "cancel"/"cancellation" must
+still align — a word-only model treats them as unrelated tokens. TF-IDF remains
+simple, explainable, fast, and needs no model to train or host. Grounding answers
+in these retrieved passages is what makes the grading step meaningful — there is a
+concrete source to check the answer against.
 
 ## Grading detail
 
 The grader prefers the LLM, which returns a strict JSON object
 (`groundedness`, `relevant`, `rationale`) that is parsed and clamped to a valid
 range. If the LLM is unavailable or its answer is unparseable, the heuristic
-estimates groundedness as the fraction of the answer's content words found in the
-retrieved context, and relevance as any content-word overlap with the question.
+estimates **groundedness** as the fraction of the answer's content words found in
+the retrieved context, and judges **relevance** from two complementary signals,
+accepting the answer when *either* is clearly met and escalating when both are
+weak:
+
+1. **lexical coverage** — the fraction of the question's content words the
+   retrieved context covers (one shared word is not enough; a real overlap is);
+   and
+2. **retrieval confidence** — the best passage's cosine similarity to the
+   question, which accepts a confident retrieval even when the surface words
+   differ.
+
+The bias is deliberate: a false escalation (a human looks at a good answer) is
+cheap; a false "confident" (a wrong answer shipped as correct) is not.
 `confident = groundedness >= threshold and relevant`.
 
 ## Extension points

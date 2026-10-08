@@ -34,11 +34,13 @@ evalúa. Evita respuestas equivocadas dichas con seguridad.
 Explicada en la guía 02. Una interfaz `Transcriber` con un motor real (Whisper) y
 uno offline (`ProvidedTranscript`). Probable sin red e independiente del motor.
 
-## Decisión 3: recuperación TF-IDF
+## Decisión 3: recuperación TF-IDF (palabra + carácter)
 
 Explicada en la guía 02. Simple, explicable, determinista y sin infraestructura,
-adecuada para una base pequeña y distintiva. La interfaz permite cambiar a
-embeddings densos después.
+adecuada para una base pequeña y distintiva. El vectorizador une una vista de
+palabra (1–2 gramas) con una de carácter (`char_wb` 3–5 gramas), de modo que una
+pregunta hablada reformulada ("refunds" por "refund") recupera igual el tema
+correcto. La interfaz permite cambiar a embeddings densos después.
 
 ## Decisión 4: degradación elegante en cada etapa
 

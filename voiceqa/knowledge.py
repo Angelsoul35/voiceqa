@@ -12,6 +12,7 @@ from dataclasses import dataclass
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.pipeline import FeatureUnion
 
 # A synthetic telecom customer-support knowledge base.
 FAQ: list[dict] = [
@@ -73,7 +74,18 @@ class Passage:
 class KnowledgeBase:
     def __init__(self, entries: list[dict] | None = None) -> None:
         self.entries = entries if entries is not None else FAQ
-        self._vectorizer = TfidfVectorizer(ngram_range=(1, 2), min_df=1)
+        # A FeatureUnion of a word view (1-2 grams: phrasing) and a character view
+        # (char_wb 3-5): the character n-grams match morphological variants a bare
+        # word model misses ("refund"/"refunds", "cancel"/"cancellation"), so a
+        # reworded spoken question still retrieves the right FAQ. Both the FAQ
+        # question and its answer are indexed, so the user's phrasing can match the
+        # FAQ's phrasing, not only the answer text.
+        self._vectorizer = FeatureUnion(
+            [
+                ("word", TfidfVectorizer(analyzer="word", ngram_range=(1, 2), min_df=1)),
+                ("char", TfidfVectorizer(analyzer="char_wb", ngram_range=(3, 5), min_df=1)),
+            ]
+        )
         corpus = [f"{e['question']} {e['answer']}" for e in self.entries]
         self._matrix = self._vectorizer.fit_transform(corpus)
 

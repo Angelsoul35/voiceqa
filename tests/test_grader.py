@@ -22,13 +22,29 @@ def test_heuristic_grounded_answer_is_confident():
 
 
 def test_irrelevant_answer_is_not_confident():
-    passages = _passages("what happens if I pay late?")
-    # An answer that is grounded in context but does not address the question.
+    # An out-of-scope question: the pipeline retrieves for THAT question (as it
+    # always does), finds nothing that really matches (low coverage and a low best
+    # retrieval score), and the grounded-but-off-topic answer is not confident.
+    question = "what is the capital of France?"
+    passages = _passages(question)
     grade = Grader(llm=FailingLLM(), min_groundedness=0.5).grade(
-        "what is the capital of France?", passages[0].answer, passages
+        question, passages[0].answer, passages
     )
     assert grade.relevant is False
     assert grade.confident is False
+
+
+def test_reworded_in_scope_question_is_confident():
+    # A question reworded away from the FAQ's exact wording still retrieves the
+    # right passage (word + character n-grams) and is graded confident — the
+    # improvement over a brittle word-only match.
+    question = "after a refund is approved, how long until the money is back on my card?"
+    passages = _passages(question)
+    grade = Grader(llm=FailingLLM(), min_groundedness=0.5).grade(
+        question, passages[0].answer, passages
+    )
+    assert passages[0].topic == "refund"
+    assert grade.confident is True
 
 
 def test_llm_json_grade_is_used():
@@ -46,6 +62,18 @@ def test_bad_llm_json_falls_back_to_heuristic():
         "what happens if I pay late?", passages[0].answer, passages
     )
     assert grade.source == "heuristic"
+
+
+def test_empty_answer_is_not_grounded_or_confident():
+    # An answer with no content words (only stop words / punctuation) cannot be
+    # grounded in anything, so the heuristic returns groundedness 0 and escalates.
+    passages = _passages()
+    grade = Grader(llm=FailingLLM(), min_groundedness=0.5).grade(
+        "what happens if I pay late?", "it is a ... ?", passages
+    )
+    assert grade.groundedness == 0.0
+    assert grade.relevant is False
+    assert grade.confident is False
 
 
 def test_groundedness_is_clamped():

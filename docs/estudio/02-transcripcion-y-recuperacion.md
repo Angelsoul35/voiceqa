@@ -47,24 +47,47 @@ dependencias externas. Así que elegimos **TF-IDF con similitud coseno**
 3. Se devuelven los `top_k` pasajes con mayor similitud, cada uno con su
    puntuación.
 
-TF-IDF da más peso a las palabras distintivas y menos a las comunes; con
-unigramas y bigramas, frases como "late payment" cuentan como señal.
+### Dos vistas del texto (la clave para la voz)
+
+El vectorizador no es un TF-IDF cualquiera: es un **`FeatureUnion`** de dos vistas
+que se concatenan en un solo vector por documento:
+
+- **vista de palabra** (`analyzer="word"`, 1–2 gramas): da peso a términos
+  distintivos y frases cortas; así "late payment" o "data roaming" cuentan como
+  señal, no solo las palabras sueltas.
+- **vista de carácter** (`analyzer="char_wb"`, 3–5 gramas): empareja **dentro** de
+  las palabras. Comparte n-gramas de caracteres, así que "refund" y "refunds", o
+  "cancel" y "cancellation", se parecen aunque para la vista de palabra sean
+  tokens distintos.
+
+¿Por qué importa tanto la vista de carácter? Porque las preguntas llegan **por
+voz**: el usuario reformula, no copia la frase exacta del FAQ. Un modelo solo de
+palabras es frágil ante esa reformulación; los n-gramas de carácter la absorben
+sin necesidad de un modelo que entrenar o alojar. Es la diferencia entre recuperar
+el tema correcto para "how long until my refund arrives?" o no recuperarlo.
 
 ### Ventajas
 
 - **Explicable:** cada pasaje trae su puntuación de por qué se recuperó.
 - **Sin infraestructura extra:** nada de modelo de embeddings ni base vectorial.
 - **Determinista:** misma consulta, mismos pasajes; pruebas reproducibles.
+- **Robusto a la reformulación:** la unión palabra + carácter recupera el tema
+  correcto aunque la pregunta esté dicha con otras palabras.
 
 ### La contrapartida (honesta)
 
-TF-IDF empareja **palabras**, no significado, así que puede fallar con paráfrasis
-que no comparten vocabulario. La interfaz `retrieve` está pensada para poder
-cambiar a un recuperador por embeddings más adelante sin tocar el resto, si el
-corpus crece y lo necesita.
+TF-IDF empareja **forma superficial**, no significado. Los n-gramas de carácter
+cubren variantes morfológicas, pero un sinónimo puro que no comparte ni palabras
+ni cadenas de caracteres ("end my agreement" por "cancel contract") todavía se le
+puede escapar. Ahí el grader hace su trabajo: una puntuación de recuperación baja
+se trata como "no relevante" y se deriva a un humano, en vez de responder con
+seguridad falsa. La interfaz `retrieve` está pensada para poder cambiar a un
+recuperador por embeddings más adelante sin tocar el resto, si el corpus crece y
+lo necesita.
 
 ## Para fijar la idea
 
 - Transcripción tras una interfaz `Transcriber`: enchufable, probable sin red.
-- Recuperación TF-IDF: simple, explicable, determinista, sin infraestructura.
+- Recuperación TF-IDF con unión palabra + carácter: simple, explicable,
+  determinista, sin infraestructura y robusta a la reformulación hablada.
 - Los pasajes recuperados son la base que luego permite evaluar la respuesta.

@@ -17,9 +17,23 @@ maximum recall over millions of documents.
 
 ## Decision
 
-Use **TF-IDF with cosine similarity** (scikit-learn). The knowledge base is
-vectorised once over question + answer text; a query is vectorised and scored
-against it, and the top-k passages are returned with their similarity scores.
+Use **TF-IDF with cosine similarity** (scikit-learn), over a **`FeatureUnion` of
+two complementary views** of the text:
+
+- a **word** view (`analyzer="word"`, 1–2 grams) that captures distinctive terms
+  and short phrases ("late payment", "data roaming"); and
+- a **character** view (`analyzer="char_wb"`, 3–5 grams) that matches *inside*
+  words, so morphological variants a word model treats as unrelated tokens
+  ("refund"/"refunds", "cancel"/"cancellation", "roaming"/"roam") still align.
+
+The knowledge base is vectorised once over question + answer text; a query is
+vectorised through the same union and scored by cosine similarity, and the top-k
+passages are returned with their scores.
+
+The character view matters because the questions arrive by **voice**: a spoken
+question is reworded, not copied from the FAQ, so a bare word match is brittle.
+The character n-grams make retrieval robust to that rewording without a model to
+train or host.
 
 ## Consequences
 
@@ -29,9 +43,12 @@ against it, and the top-k passages are returned with their similarity scores.
   it runs anywhere scikit-learn does, offline.
 - **Deterministic.** The same query always retrieves the same passages, which
   makes the pipeline and its tests reproducible.
-- **Fast and sufficient.** For a small, distinctive FAQ, lexical overlap is a
-  strong signal, and the demo and tests show it retrieving the right topics.
-- **Trade-off.** TF-IDF matches words, not meaning, so it can miss paraphrases
-  that share no vocabulary. The `retrieve` interface is designed so a dense
-  embedding retriever can replace it later without changing the answerer or the
-  grader, if the corpus grows to need it.
+- **Robust to rewording.** The word + character union retrieves the right topic
+  for a question phrased differently from the FAQ, which a word-only model would
+  miss — the common case for spoken questions.
+- **Trade-off.** TF-IDF still matches surface form, not meaning, so a pure
+  synonym that shares neither words nor character runs ("end my agreement" for
+  "cancel contract") can still be missed; the grader treats a weak best score as
+  "not relevant" and escalates rather than answering confidently. The `retrieve`
+  interface is designed so a dense embedding retriever can replace it later
+  without changing the answerer or the grader, if the corpus grows to need it.
