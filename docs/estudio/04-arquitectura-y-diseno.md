@@ -46,8 +46,9 @@ correcto. La interfaz permite cambiar a embeddings densos después.
 
 Explicada en la guía 03. Cada etapa con dependencia externa tiene un respaldo:
 transcripción (texto provisto), respuesta (mejor pasaje), evaluación (heurística
-de solapamiento). El pipeline **siempre** devuelve algo útil y honesto, y marca
-con qué camino (`*_source`). Corre sin claves ni red (así corre CI y la demo).
+de solapamiento). El pipeline **siempre** devuelve algo útil y trazable, y marca
+con qué camino (`*_source`) se obtuvo. Corre sin claves ni red (así corre CI y la
+demo).
 
 ## El LLM agnóstico del proveedor
 

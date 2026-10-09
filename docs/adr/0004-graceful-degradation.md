@@ -14,7 +14,7 @@ entirely when a provider has an outage or a key is missing.
 ## Decision
 
 Give every externally-dependent stage a **fallback**, so the pipeline always
-returns a useful, honest result:
+returns a useful result and records how it produced it:
 
 - **Transcription:** `ProvidedTranscript` stands in when there is no ASR, treating
   input as already-recognised text.
@@ -32,9 +32,8 @@ Every result records which path produced it (`answer_source`, `grade_source`,
   which is how CI and the demo run.
 - **Degrades, never dies.** A provider outage drops quality (a verbatim passage, a
   coarser grade) instead of returning nothing.
-- **Honest about itself.** The `*_source` fields make the degradation visible
-  rather than hidden, which matters when a human decides whether to trust a
-  result.
+- **Self-reporting.** The `*_source` fields make the degradation visible rather
+  than hidden, which matters when a human decides whether to trust a result.
 - **Trade-off.** The fallbacks are deliberately coarser than the LLM path, so
   quality varies with what is available. That is the right behaviour for a
   resilient system, and the source fields make the trade-off explicit rather than

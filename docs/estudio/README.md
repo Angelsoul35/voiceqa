@@ -18,6 +18,10 @@ para que el proyecto sea creíble y sirva para practicar. Esta guía explica el
    las piezas y qué decisiones de diseño se tomaron.
 5. **[05-preguntas-de-entrevista.md](05-preguntas-de-entrevista.md)** — preguntas
    típicas y cómo responderlas con seguridad.
+6. **[06-validacion-del-grader.md](06-validacion-del-grader.md)** — cómo se
+   **mide** que el grader sirve: datos reales de habla transcrita (Spoken-SQuAD),
+   la métrica ROC-AUC con su fórmula y un ejemplo trabajado, los dos controles
+   negativos y cómo se deriva el veredicto.
 
 ## Resumen en una frase
 

@@ -1,4 +1,4 @@
-.PHONY: install test lint run demo clean
+.PHONY: install test lint run demo benchmark clean
 
 install:
 	pip install -e ".[dev]"
@@ -14,6 +14,10 @@ run:
 
 demo:
 	python -m voiceqa.cli demo
+
+benchmark:
+	python -m voiceqa.real_benchmark --config default
+	python -m voiceqa.real_benchmark --config wer44
 
 clean:
 	rm -rf .pytest_cache .ruff_cache .coverage htmlcov

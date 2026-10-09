@@ -74,7 +74,7 @@ el tema correcto para "how long until my refund arrives?" o no recuperarlo.
 - **Robusto a la reformulación:** la unión palabra + carácter recupera el tema
   correcto aunque la pregunta esté dicha con otras palabras.
 
-### La contrapartida (honesta)
+### El límite de TF-IDF (y cómo lo compensa el grader)
 
 TF-IDF empareja **forma superficial**, no significado. Los n-gramas de carácter
 cubren variantes morfológicas, pero un sinónimo puro que no comparte ni palabras

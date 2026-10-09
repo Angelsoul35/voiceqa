@@ -94,6 +94,60 @@ false "confident" ships a wrong answer. The reliable relevance judgement is the
 LLM grader — this is its lexical fallback, and escalation is a first-class
 outcome.
 
+## Validating the grader on real data
+
+A grader is only worth trusting if its score actually tracks whether an answer is
+right. VoiceQA's grader is measured against ground truth on **real spoken-QA
+data** — [Spoken-SQuAD](https://huggingface.co/datasets/alinet/spoken_squad),
+SQuAD 1.1 passages synthesised to speech and transcribed back with ASR, so every
+passage carries genuine recognition noise. The benchmark reuses the production
+`Grader` end to end (offline, so the token-overlap path runs) and asks a single
+question: **does the groundedness score separate correct from incorrect
+answers?**
+
+Each question is paired with its own gold answer (correct) and with a foreign
+gold answer from another item (incorrect), both graded against the same
+transcribed passage. The headline metric is **ROC-AUC** of the groundedness
+score — threshold-free, and equal to the probability that a correct answer scores
+above an incorrect one (0.5 is chance, 1.0 is perfect).
+
+```bash
+python -m voiceqa.real_benchmark --config default   # lower-noise ASR (~22% WER)
+python -m voiceqa.real_benchmark --config wer44      # stress ASR (~44% WER)
+```
+
+| Metric (~760 labeled triples) | `default` (~22% WER) | `wer44` (~44% WER) |
+| --- | --- | --- |
+| **ROC-AUC** (held-out) | **0.987** (0.994) | **0.849** (0.841) |
+| mean score, correct vs wrong | 0.986 vs 0.062 | 0.712 vs 0.098 |
+| gate accuracy / precision / recall | 0.934 / 0.925 / 0.945 | 0.798 / 0.875 / 0.697 |
+| Spearman ρ (score vs token-F1) | 0.946 | 0.672 |
+| **control — shuffled labels** | 0.505 | 0.502 |
+| **control — random reference passage** | 0.505 | 0.497 |
+
+The two **negative controls** are what make the result credible rather than a
+lucky number. Shuffling the labels, or grading each answer against a random
+unrelated passage, both drive the AUC to ~0.50: the score keeps its
+discriminating power *only* when the labels and the passages are the real ones.
+A score that survives both controls is measuring something real.
+
+**Reading the result — when the lexical grader is enough, and when it is not.**
+On lower-noise transcripts the token-overlap grounding check is strong (AUC
+0.99). As ASR error rises it degrades predictably to 0.85: the recall drop shows
+why — when speech-to-text mangles the answer's own words (a date read aloud, a
+rare name), the correct answer is no longer lexically present in the transcript,
+so the grader cannot confirm it and conservatively escalates. That is the
+boundary. The lexical grader is a fast, dependency-free gate that is more than
+adequate for clean transcripts and high-recall triage; for heavily-degraded
+audio or answers that are semantically but not lexically present, wire in the LLM
+grader path (already in `grader.py`) and re-run this same benchmark to quantify
+the gain. The measurement is the capability: it tells you exactly where the cheap
+grader stops being enough.
+
+See [`datasets/README.md`](datasets/README.md) for the data, license, and how the
+triples are built, and [`docs/estudio/`](docs/estudio/) for a full walkthrough of
+the ROC-AUC definition and the controls.
+
 ## Quick start
 
 ```bash
@@ -158,7 +212,16 @@ pytest --cov=voiceqa --cov-report=term-missing --cov-fail-under=80
 The suite covers transcription (offline and the no-key guard), retrieval, the
 answerer (LLM and fallback paths), the grader (heuristic, LLM JSON, and clamping),
 the full pipeline (in-scope confident vs. out-of-scope escalation), the HTTP API,
-and the CLI. Nothing in the tests touches a real network.
+and the CLI. It also covers the real-data validation: the Spoken-SQuAD loader and
+label derivation, the networked fetch's retry-then-succeed and
+retry-exhausted paths (monkeypatched offline), the ROC-AUC/precision/recall
+implementations (including agreement with scikit-learn and the
+perfectly-separable → 1.0 / inverted → 0.0 edge cases), and that the grader
+discriminates above chance while both negative controls collapse. Nothing in the
+tests touches a real network.
+
+Run the grader validation itself with `make benchmark` (or
+`python -m voiceqa.real_benchmark`).
 
 ## Documentation
 
